@@ -1,8 +1,6 @@
-import os
 import asyncio
 import aiosqlite
 from datetime import timedelta
-from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 
@@ -122,22 +120,13 @@ async def cmd_ban(message: types.Message):
     await message.chat.ban(target.id)
     await message.reply(f"🚫 {target.first_name} успешно забанен(а).")
 
-async def handle(request):
-    return web.Response(text="Bot is running!")
-
 async def main():
     await init_db()
     await bot.delete_webhook(drop_pending_updates=True)
-    
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
