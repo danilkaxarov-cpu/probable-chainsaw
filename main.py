@@ -1,5 +1,8 @@
+import os
 import asyncio
 import aiosqlite
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 from datetime import timedelta
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -8,6 +11,18 @@ TOKEN = "8969732309:AAFXb0-QapYhxftl9zEPiBEBtvBT3RLJME"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# Заглушка для Render, чтобы он видел открытый порт
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_health_check_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
 
 async def init_db():
     async with aiosqlite.connect("bot_data.db") as db:
@@ -121,12 +136,12 @@ async def cmd_ban(message: types.Message):
     await message.reply(f"🚫 {target.first_name} успешно забанен(а).")
 
 async def main():
+    # Запускаем фоновый веб-сервер для порта Render
+    threading.Thread(target=run_health_check_server, daemon=True).start()
+    
     await init_db()
     await bot.delete_webhook(drop_pending_updates=True)
-    try:
-        await dp.start_polling(bot)
-    finally:
-        await bot.session.close()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
